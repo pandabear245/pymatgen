@@ -1107,23 +1107,51 @@ class Composition(collections.abc.Hashable, collections.abc.Mapping, MSONable, S
             else:
                 oxids = Element(el).icsd_oxidation_states or Element(el).common_oxidation_states
 
-            # Get all possible combinations of oxidation states
-            # and sum each combination
-            for oxid_combo in combinations_with_replacement(oxids, int(el_amt[el])):
-                # List this sum as a possible option
-                oxid_sum = sum(oxid_combo)
-                if oxid_sum not in el_sums[idx]:
-                    el_sums[idx].append(oxid_sum)
+            n = int(el_amt[el])
 
-                # Determine how probable is this combo?
-                score = sum(type(self).oxi_prob.get(Species(el, o), 0) for o in oxid_combo)  # type: ignore[union-attr]
+            # Precompute oxidation probabilities once per element
+            prob_by_oxid = {o: type(self).oxi_prob.get(Species(el, o), 0) for o in oxids}  # type: ignore[union-attr]
 
-                # If it is the most probable combo for a certain sum,
-                # store the combination
-                if oxid_sum not in el_sum_scores[idx] or score > el_sum_scores[idx].get(oxid_sum, 0):
-                    el_sum_scores[idx][oxid_sum] = score
-                    el_best_oxid_combo[idx][oxid_sum] = oxid_combo
+            # dp_scores: sum -> best score achievable after i sites
+            dp_scores: dict[int, float] = {0: 0.0}
 
+            # backpointers[i][sum] = (prev_sum, chosen_oxid)
+            backpointers: list[dict[int, tuple[int, int]]] = [{} for _ in range(n + 1)]
+
+            for i in range(1, n + 1):
+                new_scores: dict[int, float] = {}
+                new_prev: dict[int, tuple[int, int]] = {}
+
+                for prev_sum, prev_score in dp_scores.items():
+                    for o in oxids:
+                        s = prev_sum + o
+                        sc = prev_score + prob_by_oxid[o]
+
+                        if (s not in new_scores) or (sc > new_scores[s]):
+                            new_scores[s] = sc
+                            new_prev[s] = (prev_sum, o)
+
+                dp_scores = new_scores
+                backpointers[i] = new_prev
+
+            # Fill your existing data structures from DP results
+            el_sums[idx] = list(dp_scores.keys())
+            el_sum_scores[idx] = dp_scores
+
+            # Reconstruct best oxidation combo per sum
+            for s in dp_scores:
+                combo = []
+                cur_sum = s
+                for i in range(n, 0, -1):
+                    prev_sum, o = backpointers[i][cur_sum]
+                    combo.append(o)
+                    cur_sum = prev_sum
+                combo.reverse()
+
+                # Optional: keep deterministic ordering (similar spirit to combinations_with_replacement)
+                combo = tuple(sorted(combo))
+
+                el_best_oxid_combo[idx][s] = combo
         # Determine which combination of oxidation states for each element
         # is the most probable
         all_sols = []  # will contain all solutions
