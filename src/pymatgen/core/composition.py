@@ -1107,6 +1107,9 @@ class Composition(collections.abc.Hashable, collections.abc.Mapping, MSONable, S
             else:
                 oxids = Element(el).icsd_oxidation_states or Element(el).common_oxidation_states
 
+            # Precompute oxidation probabilities once per element (big speedup)
+            prob_by_oxid = {o: type(self).oxi_prob.get(Species(el, o), 0) for o in oxids}
+
             # Get all possible combinations of oxidation states
             # and sum each combination
             for oxid_combo in combinations_with_replacement(oxids, int(el_amt[el])):
