@@ -1113,14 +1113,14 @@ class Composition(collections.abc.Hashable, collections.abc.Mapping, MSONable, S
             prob_by_oxid = {o: type(self).oxi_prob.get(Species(el, o), 0) for o in oxids}  # type: ignore[union-attr]
 
             # dp_scores: sum -> best score achievable after i sites
-            dp_scores: dict[int, float] = {0: 0.0}
+            dp_scores: dict[float, float] = {0: 0.0}
 
             # backpointers[i][sum] = (prev_sum, chosen_oxid)
-            backpointers: list[dict[int, tuple[int, int]]] = [{} for _ in range(n + 1)]
+            backpointers: list[dict[float, tuple[float, float]]] = [{} for _ in range(n + 1)]
 
             for i in range(1, n + 1):
-                new_scores: dict[int, float] = {}
-                new_prev: dict[int, tuple[int, int]] = {}
+                new_scores: dict[float, float] = {}
+                new_prev: dict[float, tuple[float, float]] = {}
 
                 for prev_sum, prev_score in dp_scores.items():
                     for o in oxids:
